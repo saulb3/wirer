@@ -74,13 +74,13 @@ public class WirerInjector implements Wirer.Implementation {
         log.accept(LogLevel.INFO, "Initialize wirer injection.");
 
         for (Plugin p : Bukkit.getPluginManager().getPlugins()) {
-            if(!(p.isEnabled() && p instanceof WirerPlugin plugin))
+            if(!(p instanceof WirerPlugin plugin))
                 continue;
-            
+            log.accept(LogLevel.DEBUG, "Plugin " + plugin.getName() + " has been added.");
+
             // création du "scoped service collection"
             var serviceCollection = serviceContainerMap.computeIfAbsent(plugin,
                     _ -> new WirerServiceContainer(singletonMap, transientMap));
-
             // bindings par défaut
             serviceCollection.addScoped(plugin);
             serviceCollection.addScoped(plugin.getLogger());
@@ -115,11 +115,15 @@ public class WirerInjector implements Wirer.Implementation {
     }
 
     private void injectContainer(WirerPlugin plugin, ServiceProvider serviceProvider) {
+        log.accept(LogLevel.DEBUG, "Starting plugin " + plugin.getName() + " injection.");
         try (var inspector = Reflex.getInspector(plugin)) {
             inspector.getFieldsWithAnnotation(Inject.class).forEach(field -> {
-                if(!Modifier.isPrivate(field.getModifiers()) || !Modifier.isStatic(field.getModifiers()))
+                if(!Modifier.isPrivate(field.getModifiers()) || !Modifier.isStatic(field.getModifiers())) {
                     return;
+                }
+                log.accept(LogLevel.DEBUG, "Injecting: " + field.getName());
                 serviceProvider.get(field.getType()).ifPresent(obj -> {
+                    log.accept(LogLevel.DEBUG, "Service found: " + obj.getClass().getName());
                     try {
                         field.setAccessible(true);
                         field.set(null, obj);
@@ -159,6 +163,7 @@ public class WirerInjector implements Wirer.Implementation {
     }
 
     public enum LogLevel {
+        DEBUG,
         INFO,
         WARN
     }
